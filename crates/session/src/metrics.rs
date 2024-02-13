@@ -1,3 +1,7 @@
+/*----------------------------------------------------------------------------------------------------------
+ *  Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/conclave-rust/room-session
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------------------*/
 use std::time::Instant;
 
 /// Evaluating how many times something occurs every second.

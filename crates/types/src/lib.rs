@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------------------------------------------
- *  Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/conclave-rust/types
+ *  Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/conclave-rust/room-session
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------------------*/
 use core::fmt;

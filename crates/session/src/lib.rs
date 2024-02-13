@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------------------------------------------
- *  Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/piot/conclave-room-rs
+ *  Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/conclave-rust/room-session
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------------------*/
 //! The Conclave Logic for a Room
