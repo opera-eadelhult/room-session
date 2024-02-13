@@ -1,0 +1,10 @@
+[package]
+name = "conclave-room-serialize"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+flood-rs = "0.0.4"
+conclave-types = { path = "../types/" }

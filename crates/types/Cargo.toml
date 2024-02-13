@@ -1,0 +1,12 @@
+[package]
+name = "conclave-types"
+version = "0.0.2"
+edition = "2021"
+license = "MIT"
+description = "conclave basic types and traits"
+repository = "https://github.com/conclave-rust/types"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+

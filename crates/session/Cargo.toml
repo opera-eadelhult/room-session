@@ -1,0 +1,12 @@
+[package]
+name = "conclave-room-session"
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+description = "conclave room session"
+repository = "https://github.com/conclave-rust/room-session"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+conclave-types = { path = "../types" }
