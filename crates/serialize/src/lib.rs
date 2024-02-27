@@ -6,30 +6,27 @@
 
 use std::io::{Error, ErrorKind, Result};
 
-use conclave_types::{Term, Knowledge};
+use conclave_types::{ConnectionToLeader, Knowledge, Term};
 use flood_rs::{ReadOctetStream, WriteOctetStream};
 
 use crate::ClientReceiveCommand::RoomInfoType;
 use crate::ServerReceiveCommand::PingCommandType;
 
 /// Sent from Client to Server
-#[derive(Debug, PartialEq)]
 
+
+#[derive(Debug, PartialEq)]
 pub struct PingCommand {
     pub term: Term,
     pub knowledge: Knowledge,
-    pub has_connection_to_leader: bool,
+    pub has_connection_to_leader: ConnectionToLeader,
 }
 
 impl PingCommand {
     pub fn to_octets(&self, stream: &mut dyn WriteOctetStream) -> Result<()> {
         stream.write_u16(self.term.0)?;
         stream.write_u64(self.knowledge.0)?;
-        stream.write_u8(if self.has_connection_to_leader {
-            0x01
-        } else {
-            0x00
-        })?;
+        stream.write_u8(self.has_connection_to_leader.to_u8())?;
 
         Ok(())
     }
@@ -38,7 +35,7 @@ impl PingCommand {
         Ok(Self {
             term: Term(stream.read_u16()?),
             knowledge: Knowledge(stream.read_u64()?),
-            has_connection_to_leader: stream.read_u8()? != 0,
+            has_connection_to_leader: ConnectionToLeader::from_u8(stream.read_u8()?).ok_or(Error::new(ErrorKind::InvalidData, "Option is None"))?,
         })
     }
 }
@@ -126,8 +123,8 @@ impl ServerReceiveCommand {
     }
 }
 
-pub const PING_COMMAND_TYPE_ID: u8 = 0x01;
-pub const ROOM_INFO_COMMAND_TYPE_ID: u8 = 0x02;
+pub const PING_COMMAND_TYPE_ID: u8 = 0x0a;
+pub const ROOM_INFO_COMMAND_TYPE_ID: u8 = 0x2a; // Ping Response
 
 #[derive(Debug)]
 pub enum ClientReceiveCommand {
@@ -164,14 +161,13 @@ impl ClientReceiveCommand {
 
 #[cfg(test)]
 mod tests {
-    use conclave_types::{Term, Knowledge};
+    use conclave_types::{Knowledge, Term, ConnectionToLeader};
     use flood_rs::{InOctetStream, OutOctetStream};
 
     use crate::ClientReceiveCommand::RoomInfoType;
     use crate::ServerReceiveCommand::PingCommandType;
     use crate::{
-        ClientReceiveCommand, PingCommand, ServerReceiveCommand, PING_COMMAND_TYPE_ID,
-        ROOM_INFO_COMMAND_TYPE_ID,
+        ClientReceiveCommand, PingCommand, ServerReceiveCommand, PING_COMMAND_TYPE_ID, ROOM_INFO_COMMAND_TYPE_ID
     };
 
     #[test]
@@ -179,7 +175,7 @@ mod tests {
         let ping_command = PingCommand {
             term: Term(32),
             knowledge: Knowledge(444441),
-            has_connection_to_leader: false,
+            has_connection_to_leader: ConnectionToLeader::Unknown,
         };
 
         let mut out_stream = OutOctetStream::new();
@@ -222,7 +218,7 @@ mod tests {
                 println!("received {:?}", &ping_command);
                 assert_eq!(ping_command.term.0, 0x20);
                 assert_eq!(ping_command.knowledge.0, EXPECTED_KNOWLEDGE_VALUE);
-                assert_eq!(ping_command.has_connection_to_leader, true);
+                assert_eq!(ping_command.has_connection_to_leader, ConnectionToLeader::Connected);
             } // _ => assert!(false, "should be ping command"),
         }
     }

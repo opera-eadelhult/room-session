@@ -11,7 +11,7 @@ use core::fmt;
 use std::collections::HashMap;
 use std::time::Instant;
 
-use conclave_types::{Knowledge, Term};
+use conclave_types::{Knowledge, Term, ConnectionToLeader};
 mod metrics;
 
 use crate::metrics::RateMetrics;
@@ -106,7 +106,7 @@ pub struct Connection {
     pub knowledge: Knowledge,
     pub state: ConnectionState,
     pub last_reported_term: Term,
-    pub has_connection_host: bool,
+    pub has_connection_host: ConnectionToLeader,
 }
 
 const PINGS_PER_SECOND_THRESHOLD: f32 = 10.0;
@@ -114,7 +114,7 @@ const PINGS_PER_SECOND_THRESHOLD: f32 = 10.0;
 impl Connection {
     fn new(connection_id: ConnectionIndex, term: Term, time: Instant) -> Self {
         Connection {
-            has_connection_host: false,
+            has_connection_host: ConnectionToLeader::Unknown,
             last_reported_term: term,
             id: connection_id,
             quality: ConnectionQuality::new(PINGS_PER_SECOND_THRESHOLD, time),
@@ -126,7 +126,7 @@ impl Connection {
     fn on_ping(
         &mut self,
         term: Term,
-        has_connection_to_host: bool,
+        has_connection_to_host: ConnectionToLeader,
         knowledge: Knowledge,
         time: Instant,
     ) {
@@ -166,7 +166,7 @@ impl Room {
     fn has_most_lost_connection_to_leader(&self) -> bool {
         let mut disappointed_count = 0;
         for (_, connection) in self.connections.iter() {
-            if !connection.has_connection_host && connection.last_reported_term == self.term {
+            if connection.has_connection_host == ConnectionToLeader::Disconnected && connection.last_reported_term == self.term {
                 disappointed_count += 1;
             }
         }
@@ -276,7 +276,7 @@ impl Room {
         &mut self,
         connection_index: ConnectionIndex,
         term: Term,
-        has_connection_to_host: bool,
+        has_connection_to_host: ConnectionToLeader,
         knowledge: Knowledge,
         time: Instant,
     ) {
@@ -308,7 +308,7 @@ impl Room {
 mod tests {
     use std::time::{Duration, Instant};
 
-    use conclave_types::{Knowledge, Term};
+    use conclave_types::{ConnectionToLeader, Knowledge, Term};
     use crate::{QualityAssessment, Room};
 
     #[test]
@@ -321,10 +321,10 @@ mod tests {
         let term: Term = Term(1);
 
         {
-            room.on_ping(connection_id, term, true, knowledge, now);
+            room.on_ping(connection_id, term, ConnectionToLeader::Connected, knowledge, now);
 
             let time_in_future = now + Duration::new(10, 0);
-            room.on_ping(connection_id, term, true, knowledge, time_in_future);
+            room.on_ping(connection_id, term, ConnectionToLeader::Connected, knowledge, time_in_future);
             room.update(time_in_future);
             assert_eq!(
                 room.get(connection_id).quality.assessment,
@@ -361,7 +361,7 @@ mod tests {
 
         let time_in_future = now + Duration::new(10, 0);
 
-        let has_connection_to_host = true;
+        let has_connection_to_host = ConnectionToLeader::Connected;
         let knowledge: Knowledge = Knowledge(42);
 
         room.on_ping(

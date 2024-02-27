@@ -52,6 +52,32 @@ impl Knowledge {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum ConnectionToLeader {
+    Unknown,
+    Connected,
+    Disconnected,
+}
+
+impl ConnectionToLeader {
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            ConnectionToLeader::Unknown => 0,
+            ConnectionToLeader::Connected => 1,
+            ConnectionToLeader::Disconnected => 2,
+        }
+    }
+
+    pub fn from_u8(value: u8) -> Option<ConnectionToLeader> {
+        match value {
+            0 => Some(ConnectionToLeader::Unknown),
+            1 => Some(ConnectionToLeader::Connected),
+            2 => Some(ConnectionToLeader::Disconnected),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod term_tests {
     use crate::Term;
