@@ -70,13 +70,13 @@ impl ConnectionQuality {
     }
 
     fn on_ping(&mut self, time: Instant) {
-        eprintln!("connection_quality::on_ping({:?})", time);
+        // eprintln!("connection_quality::on_ping({:?})", time);
         self.last_ping_at = time;
         self.pings_per_second.increment();
     }
 
     fn update(&mut self, time: Instant) {
-        eprintln!("connection_quality::update({:?})", time);
+        //eprintln!("connection_quality::update({:?})", time);
         if !self.pings_per_second.has_enough_time_passed(time) {
             self.assessment = QualityAssessment::NeedMoreInformation;
         } else {
@@ -130,7 +130,7 @@ impl Connection {
         knowledge: Knowledge,
         time: Instant,
     ) {
-        eprintln!("connection({}): on_ping({:?})", self.id, time);
+        //eprintln!("connection({}): on_ping({:?})", self.id, time);
         self.last_reported_term = term;
         self.has_connection_host = has_connection_to_host;
         self.quality.on_ping(time);
@@ -158,7 +158,7 @@ pub struct Room {
 
 impl Room {
     pub fn new() -> Self {
-        eprintln!("===================\ncreating a room");
+        //eprintln!("===================\ncreating a room");
         Default::default()
     }
 
@@ -197,10 +197,10 @@ impl Room {
             self.connection_with_most_knowledge_and_acceptable_quality(self.leader_index);
         // We start a new term, since we have a new leader
         self.term.next();
-        eprintln!(
-            "switched to leader {:?} for term {}",
-            self.leader_index, self.term
-        );
+        //eprintln!(
+        //    "switched to leader {:?} for term {}",
+        //    self.leader_index, self.term
+        //);
     }
 
     fn change_leader_if_down_voted(&mut self) -> bool {
@@ -222,10 +222,10 @@ impl Room {
         }
 
         let leader_connection = self.connections.get(&self.leader_index.unwrap()).unwrap();
-        eprintln!(
-            "check if leader is non-responsive: {:?}",
-            leader_connection.assessment()
-        );
+        //eprintln!(
+        //    "check if leader is non-responsive: {:?}",
+        //    leader_connection.assessment()
+        //);
 
         if leader_connection.assessment() == QualityAssessment::RecommendDisconnect {
             self.switch_leader_to_best_knowledge_and_quality()
@@ -248,7 +248,7 @@ impl Room {
     pub fn create_connection(&mut self, time: Instant) -> ConnectionIndex {
         self.id.next();
         let connection_id = self.find_unique_connection_index();
-        eprintln!("room: creating a connection {}", connection_id);
+        //eprintln!("room: creating a connection {}", connection_id);
         let connection = Connection::new(connection_id, self.term, time);
         self.connections.insert(self.id, connection);
 
@@ -293,7 +293,7 @@ impl Room {
     }
 
     pub fn destroy_connection(&mut self, connection_index: ConnectionIndex) {
-        eprintln!("destroy connection {}", connection_index);
+        //eprintln!("destroy connection {}", connection_index);
         if let Some(leader_index) = self.leader_index {
             if leader_index == connection_index {
                 // If it was the leader, we must select a new leader
