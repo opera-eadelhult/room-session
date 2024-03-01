@@ -132,7 +132,7 @@ pub enum ClientReceiveCommand {
 }
 
 impl ClientReceiveCommand {
-    pub fn to_octets<T: WriteOctetStream>(&self, stream: &mut T) -> Result<()> {
+    pub fn to_octets(&self, stream: &mut dyn WriteOctetStream) -> Result<()> {
         let command_type_id = match self {
             RoomInfoType(_) => ROOM_INFO_COMMAND_TYPE_ID,
             // _ => return Err(format!("unsupported command {:?}", self)),

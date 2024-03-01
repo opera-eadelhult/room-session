@@ -11,7 +11,7 @@ use std::time::Instant;
 
 use flood_rs::{WriteOctetStream, ReadOctetStream};
 
-use conclave_room_serialize::{RoomInfoCommand, ServerReceiveCommand};
+use conclave_room_serialize::{ClientReceiveCommand, RoomInfoCommand, ServerReceiveCommand};
 use conclave_room_session::{ConnectionIndex, Room};
 
 pub struct NetworkConnection {
@@ -34,8 +34,8 @@ impl SendDatagram for Room {
             } as u8,
             client_infos: vec![],
         };
-
-        room_info_command.to_octets(stream)?;
+        let client_receive_command = ClientReceiveCommand::RoomInfoType(room_info_command);
+        client_receive_command.to_octets(stream)?;
         Ok(())
     }
 }
@@ -93,7 +93,7 @@ mod tests {
         let mut out_stream = OutOctetStream::default();
         room.send(&mut out_stream).unwrap();
 
-        assert_eq!(vec![0x00, 0x00, 0x00, 0xff], out_stream.data);
+        assert_eq!(vec![0x2a, 0x00, 0x00, 0x00, 0xff], out_stream.data);
     }
 
     #[test]
