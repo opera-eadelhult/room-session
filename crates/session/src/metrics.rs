@@ -29,11 +29,10 @@ impl RateMetrics {
 
     pub(crate) fn calculate_rate(&mut self, time: Instant) -> f32 {
         let elapsed_time = time - self.last_calculated_at;
-        let milliseconds = elapsed_time.as_secs() as f32 * 1000.0
-            + elapsed_time.subsec_nanos() as f32 / 1_000_000.0;
+        let seconds = elapsed_time.as_secs_f32();
 
-        let rate = if milliseconds > 0.0 {
-            self.count as f32 / milliseconds
+        let rate = if seconds > 0.0 {
+            self.count as f32 / seconds
         } else {
             0.0
         };
