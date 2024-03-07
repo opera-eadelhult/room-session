@@ -52,7 +52,7 @@ impl Knowledge {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ConnectionToLeader {
     Unknown,
     Connected,

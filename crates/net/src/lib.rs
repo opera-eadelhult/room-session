@@ -66,7 +66,7 @@ impl ReceiveDatagram for Room {
                 self.on_ping(
                     connection_id,
                     ping_command.term,
-                    ping_command.has_connection_to_leader,
+                    &ping_command.has_connection_to_leader,
                     ping_command.knowledge,
                     now,
                 );
