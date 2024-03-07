@@ -84,7 +84,7 @@ impl Connection {
         time: Instant,
     ) {
         self.last_reported_term = term;
-        self.has_connection_host = has_connection_to_host.clone();
+        self.has_connection_host = *has_connection_to_host;
         self.quality.on_ping(time);
         self.knowledge = knowledge;
     }
@@ -98,6 +98,7 @@ impl Connection {
     }
 }
 
+/// Configuration for a Room
 #[derive(Debug)]
 pub struct RoomConfig {
     pub allowed_to_remove_single_leader: bool,
@@ -108,11 +109,12 @@ impl Default for RoomConfig {
     fn default() -> Self {
         Self {
             allowed_to_remove_single_leader: false,
-            pings_per_second_threshold: 10.0,
+            pings_per_second_threshold: 5.0,
         }
     }
 }
 
+/// Room config builder
 impl RoomConfig {
     pub fn new() -> Self {
         Self::default()
@@ -126,6 +128,16 @@ impl RoomConfig {
     pub fn pings_per_second_threshold(mut self, threshold: f32) -> Self {
         self.pings_per_second_threshold = threshold;
         self
+    }
+
+    pub fn recommended_for_debug() -> Self {
+        Self::default()
+            .pings_per_second_threshold(4.0)
+    }
+
+    pub fn recommended_for_release() -> Self {
+        Self::default()
+            .pings_per_second_threshold(10.0)
     }
 
     pub fn build(self) -> Room {
@@ -291,7 +303,7 @@ impl Room {
         time: Instant,
     ) {
         let connection = self.connections.get_mut(&connection_index).unwrap();
-        connection.on_ping(term, &has_connection_to_host, knowledge, time)
+        connection.on_ping(term, has_connection_to_host, knowledge, time)
     }
 
     pub fn get_mut(&mut self, connection_index: ConnectionIndex) -> &mut Connection {
@@ -315,7 +327,6 @@ impl Room {
 
 #[cfg(test)]
 mod tests {
-    use core::time;
     use std::time::{Duration, Instant};
 
     use crate::{QualityAssessment, Room, RoomConfig};
@@ -432,7 +443,7 @@ mod tests {
     fn custom_timeout_config() {
         let mut room = RoomConfig::new()
             .allow_remove_single_leader()
-            .pings_per_second_threshold(40.0)
+            .pings_per_second_threshold(0.9)
             .build();
         let now = Instant::now();
         let single_leader_connection_id = room.create_connection(now);
@@ -440,31 +451,36 @@ mod tests {
         assert_eq!(single_leader_connection_id.value(), 1);
         assert_eq!(room.leader_index.unwrap().value(), 1);
 
-        let time_in_future = now + Duration::new(39, 0);
+        let mut time = now;
 
         let has_connection_to_host = ConnectionToLeader::Connected;
         let knowledge: Knowledge = Knowledge(42);
 
-        room.on_ping(
-            single_leader_connection_id,
-            term,
-            &has_connection_to_host,
-            knowledge,
-            time_in_future,
-        );
+        for _ in 0..2 {
+            time += Duration::new(1, 0);
+            room.on_ping(
+                single_leader_connection_id,
+                term,
+                &has_connection_to_host,
+                knowledge,
+                time,
+            );
+            room.update(time)
+        }
 
         assert_eq!(room.leader_index.unwrap().value(), 1);
 
-        room.update(time_in_future);
-
-        let should_time_out_time = now + Duration::new(41, 0);
-        room.on_ping(
-            single_leader_connection_id,
-            term,
-            &has_connection_to_host,
-            knowledge,
-            should_time_out_time,
-        );
+        for _ in 0..2 {
+            time += Duration::new(2, 0);
+            room.on_ping(
+                single_leader_connection_id,
+                term,
+                &has_connection_to_host,
+                knowledge,
+                time,
+            );
+            room.update(time)
+        }
 
         // the single leader should have timed out now
         assert!(room.leader_index.is_none());

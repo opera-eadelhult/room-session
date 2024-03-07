@@ -24,7 +24,7 @@ impl RateMetrics {
     }
 
     pub fn has_enough_time_passed(&self, time: Instant) -> bool {
-        (time - self.last_calculated_at).as_millis() > 200
+        (time - self.last_calculated_at).as_millis() > 500
     }
 
     pub(crate) fn calculate_rate(&mut self, time: Instant) -> f32 {
