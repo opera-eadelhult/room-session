@@ -103,6 +103,8 @@ impl Connection {
 pub struct RoomConfig {
     pub allowed_to_remove_single_leader: bool,
     pub pings_per_second_threshold: f32,
+    pub disconnect_bad_connections: bool,
+    pub destroy_disconnected_connections: bool,
 }
 
 impl Default for RoomConfig {
@@ -110,6 +112,8 @@ impl Default for RoomConfig {
         Self {
             allowed_to_remove_single_leader: false,
             pings_per_second_threshold: 5.0,
+            disconnect_bad_connections: true,
+            destroy_disconnected_connections: false,
         }
     }
 }
@@ -303,7 +307,14 @@ impl Room {
         time: Instant,
     ) {
         let connection = self.connections.get_mut(&connection_index).unwrap();
-        connection.on_ping(term, has_connection_to_host, knowledge, time)
+        connection.on_ping(term, has_connection_to_host, knowledge, time);
+
+        if self.config.disconnect_bad_connections && connection.assessment() == QualityAssessment::RecommendDisconnect {
+            connection.state = ConnectionState::Disconnected;
+            if self.config.destroy_disconnected_connections {
+                self.destroy_connection(connection_index);
+            }
+        }
     }
 
     pub fn get_mut(&mut self, connection_index: ConnectionIndex) -> &mut Connection {
