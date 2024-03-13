@@ -12,7 +12,7 @@ mod metrics;
 
 use core::fmt;
 use std::collections::HashMap;
-use std::time::Instant;
+use std::time::{Instant, Duration};
 
 use crate::connection_quality::ConnectionQuality;
 use conclave_types::{ConnectionToLeader, Knowledge, Term};
@@ -149,6 +149,8 @@ impl RoomConfig {
     }
 }
 
+const ABANDONED_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// Contains the Room [Connection]s as well the appointed Leader.
 #[derive(Debug)]
 pub struct Room {
@@ -157,6 +159,7 @@ pub struct Room {
     pub leader_index: Option<ConnectionIndex>,
     pub term: Term,
     pub config: RoomConfig,
+    pub latest_ping_timestamp: Option<Instant>,
 }
 
 impl Default for Room {
@@ -167,6 +170,7 @@ impl Default for Room {
             leader_index: None,
             term: Term(0),
             config: Default::default(),
+            latest_ping_timestamp: None,
         }
     }
 }
@@ -297,6 +301,16 @@ impl Room {
         self.switch_leader_if_non_responsive();
     }
 
+    /// True if the room has not received a ping from anyone in `ABANDONED_TIMEOUT` amount of time
+    pub fn is_abandoned(&self, now: Instant) -> bool {
+        let Some(prev) = self.latest_ping_timestamp else {
+            // This room has never received a single ping
+            return true;
+        };
+
+        now - prev > ABANDONED_TIMEOUT
+    }
+
     /// Receiving a ping command from a connection
     pub fn on_ping(
         &mut self,
@@ -306,6 +320,7 @@ impl Room {
         knowledge: Knowledge,
         time: Instant,
     ) {
+        self.latest_ping_timestamp = Some(time);
         let connection = self.connections.get_mut(&connection_index).unwrap();
         connection.on_ping(term, has_connection_to_host, knowledge, time);
 
