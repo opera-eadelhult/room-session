@@ -12,7 +12,7 @@ mod metrics;
 
 use core::fmt;
 use std::collections::HashMap;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 use crate::connection_quality::ConnectionQuality;
 use conclave_types::{ConnectionToLeader, Knowledge, Term};
@@ -135,13 +135,11 @@ impl RoomConfig {
     }
 
     pub fn recommended_for_debug() -> Self {
-        Self::default()
-            .pings_per_second_threshold(4.0)
+        Self::default().pings_per_second_threshold(4.0)
     }
 
     pub fn recommended_for_release() -> Self {
-        Self::default()
-            .pings_per_second_threshold(10.0)
+        Self::default().pings_per_second_threshold(10.0)
     }
 
     pub fn build(self) -> Room {
@@ -289,10 +287,29 @@ impl Room {
         self.id
     }
 
-    pub fn update(&mut self, time: Instant) {
+    fn update(&mut self, time: Instant) {
         for connection in self.connections.values_mut() {
             connection.update(time);
         }
+
+        if self.config.disconnect_bad_connections {
+            let mut connection_index_vector = Vec::<ConnectionIndex>::new();
+            for connection in self.connections.values_mut() {
+                if connection.assessment() == QualityAssessment::RecommendDisconnect {
+                    connection.state = ConnectionState::Disconnected;
+                    if self.config.destroy_disconnected_connections {
+                        connection_index_vector.push(connection.id);
+                    }
+                }
+            }
+
+            if self.config.destroy_disconnected_connections {
+                for connection_index in connection_index_vector {
+                    self.destroy_connection(connection_index);
+                }
+            }
+        }
+
         let leader_was_changed = self.change_leader_if_down_voted();
         if leader_was_changed {
             return;
@@ -323,13 +340,7 @@ impl Room {
         self.latest_ping_timestamp = Some(time);
         let connection = self.connections.get_mut(&connection_index).unwrap();
         connection.on_ping(term, has_connection_to_host, knowledge, time);
-
-        if self.config.disconnect_bad_connections && connection.assessment() == QualityAssessment::RecommendDisconnect {
-            connection.state = ConnectionState::Disconnected;
-            if self.config.destroy_disconnected_connections {
-                self.destroy_connection(connection_index);
-            }
-        }
+        self.update(time);
     }
 
     pub fn get_mut(&mut self, connection_index: ConnectionIndex) -> &mut Connection {
@@ -384,7 +395,6 @@ mod tests {
                 knowledge,
                 time_in_future,
             );
-            room.update(time_in_future);
             assert_eq!(
                 room.get(connection_id).quality.assessment,
                 QualityAssessment::RecommendDisconnect
@@ -431,7 +441,6 @@ mod tests {
             time_in_future,
         );
 
-        room.update(time_in_future);
 
         // Only the supporter connection has reported, so the leader_connection should be disconnected
         assert_eq!(room.leader_index.unwrap().value(), 2);
@@ -459,7 +468,6 @@ mod tests {
             time_in_future,
         );
 
-        room.update(time_in_future);
 
         // the single leader has timed out, but should be retained by default
         assert_eq!(room.leader_index.unwrap().value(), 1);
@@ -491,7 +499,6 @@ mod tests {
                 knowledge,
                 time,
             );
-            room.update(time)
         }
 
         assert_eq!(room.leader_index.unwrap().value(), 1);
@@ -505,7 +512,6 @@ mod tests {
                 knowledge,
                 time,
             );
-            room.update(time)
         }
 
         // the single leader should have timed out now
@@ -533,8 +539,6 @@ mod tests {
             knowledge,
             time_in_future,
         );
-
-        room.update(time_in_future);
 
         // the single leader has timed out, and is removed
         assert!(room.leader_index.is_none());
