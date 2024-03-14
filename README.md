@@ -1,9 +1,13 @@
-<h1 align="center">
-    <img src="https://raw.githubusercontent.com/piot/conclave/main/docs/images/logo.svg" width="256" />
-</h1>
+<div>
+    <div>
+        <a href=""><img align="left" src="https://raw.githubusercontent.com/piot/conclave/main/docs/images/logo.svg" width="80px"></a>
+    </div>
+    <h2>Conclave Room Session</h2>
+    Reusable conclave room session logic.
+</div>
 
-# Conclave Room Session
+<br/>
 
 > conclave : a private meeting
 
-Reusable conclave room session logic.
+
