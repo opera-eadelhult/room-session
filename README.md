@@ -1,7 +1,5 @@
 <div>
-    <div>
-        <a href=""><img align="left" src="https://raw.githubusercontent.com/piot/conclave/main/docs/images/logo.svg" width="80px"></a>
-    </div>
+    <img align="left" src="https://raw.githubusercontent.com/piot/conclave/main/docs/images/logo.svg" width="90px">
     <h2>Conclave Room Session</h2>
     Reusable conclave room session logic.
 </div>
