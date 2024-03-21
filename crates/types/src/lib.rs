@@ -33,7 +33,7 @@ impl Term {
 }
 
 /// The knowledge of the game state, typically the tick ID.
-#[derive(Default, Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Knowledge(pub u64);
 
 impl fmt::Display for Knowledge {
