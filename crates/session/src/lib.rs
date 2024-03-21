@@ -187,35 +187,25 @@ impl Room {
 
     /// checks if most connections, that are on the same term, has lost connection to leader
     fn has_most_lost_connection_to_leader(&self) -> bool {
-        let mut disappointed_count = 0;
-        for (_, connection) in self.connections.iter() {
-            if connection.has_connection_host == ConnectionToLeader::Disconnected
-                && connection.last_reported_term == self.term
-            {
-                disappointed_count += 1;
-            }
-        }
-        disappointed_count >= self.connections.len()
+        self.connections
+            .iter()
+            .filter(|(_, connection)| {
+                connection.has_connection_host == ConnectionToLeader::Disconnected
+                    && connection.last_reported_term == self.term
+            })
+            .count()
+            > self.connections.len() / 2
     }
 
     fn connection_with_most_knowledge_and_acceptable_quality(
         &self,
         exclude_index: Option<ConnectionIndex>,
     ) -> Option<ConnectionIndex> {
-        let mut knowledge: Knowledge = Knowledge(0);
-        let mut connection_index: Option<ConnectionIndex> = None;
-
-        for (_, connection) in self.connections.iter() {
-            if (connection.knowledge >= knowledge || connection_index.is_none())
-                && exclude_index.is_none()
-                || connection.id != exclude_index.unwrap()
-            {
-                knowledge = connection.knowledge;
-                connection_index = Some(connection.id);
-            }
-        }
-
-        connection_index
+        self.connections
+            .iter()
+            .filter(|(_, connection)| exclude_index.map_or(true, |ex_id| connection.id != ex_id))
+            .max_by_key(|(_, connection)| connection.knowledge)
+            .map(|(_, connection)| connection.id)
     }
 
     fn switch_leader_to_best_knowledge_and_quality(&mut self) {
@@ -441,7 +431,6 @@ mod tests {
             time_in_future,
         );
 
-
         // Only the supporter connection has reported, so the leader_connection should be disconnected
         assert_eq!(room.leader_index.unwrap().value(), 2);
     }
@@ -467,7 +456,6 @@ mod tests {
             knowledge,
             time_in_future,
         );
-
 
         // the single leader has timed out, but should be retained by default
         assert_eq!(room.leader_index.unwrap().value(), 1);
