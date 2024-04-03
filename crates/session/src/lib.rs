@@ -55,20 +55,19 @@ pub struct Connection {
     quality: ConnectionQuality,
     pub knowledge: Knowledge,
     pub state: ConnectionState,
-    pub last_reported_term: Term,
+    pub last_reported_term: Option<Term>,
     pub has_connection_host: ConnectionToLeader,
 }
 
 impl Connection {
     fn new(
         connection_id: ConnectionIndex,
-        term: Term,
         time: Instant,
         pings_per_second_threshold: f32,
     ) -> Self {
         Connection {
             has_connection_host: ConnectionToLeader::Unknown,
-            last_reported_term: term,
+            last_reported_term: None,
             id: connection_id,
             quality: ConnectionQuality::new(pings_per_second_threshold, time),
             knowledge: Knowledge(0),
@@ -83,7 +82,7 @@ impl Connection {
         knowledge: Knowledge,
         time: Instant,
     ) {
-        self.last_reported_term = term;
+        self.last_reported_term = Some(term);
         self.has_connection_host = *has_connection_to_host;
         self.quality.on_ping(time);
         self.knowledge = knowledge;
@@ -191,7 +190,7 @@ impl Room {
             .iter()
             .filter(|(_, connection)| {
                 connection.has_connection_host == ConnectionToLeader::Disconnected
-                    && connection.last_reported_term == self.term
+                    && connection.last_reported_term == Some(self.term)
             })
             .count()
             > self.connections.len() / 2
@@ -228,7 +227,7 @@ impl Room {
         false
     }
 
-    fn is_possble_to_switch_leader(&self) -> bool {
+    fn is_possible_to_switch_leader(&self) -> bool {
         self.connections.len() > 1 || self.config.allowed_to_remove_single_leader
     }
 
@@ -240,7 +239,7 @@ impl Room {
         let leader_connection = self.connections.get(&self.leader_index.unwrap()).unwrap();
 
         if leader_connection.assessment() == QualityAssessment::RecommendDisconnect
-            && self.is_possble_to_switch_leader()
+            && self.is_possible_to_switch_leader()
         {
             self.switch_leader_to_best_knowledge_and_quality()
         }
@@ -264,7 +263,6 @@ impl Room {
         let connection_id = self.find_unique_connection_index();
         let connection = Connection::new(
             connection_id,
-            self.term,
             time,
             self.config.pings_per_second_threshold,
         );
@@ -275,6 +273,15 @@ impl Room {
         }
 
         self.id
+    }
+
+    pub fn connection_knows_about_current_term(&self, connection_index: ConnectionIndex) -> bool {
+        let found_connection = self.connections.get(&connection_index).unwrap();
+        if let Some(last_reported_term) = found_connection.last_reported_term {
+           last_reported_term == self.term
+        } else {
+            false
+        }
     }
 
     fn update(&mut self, time: Instant) {
@@ -543,5 +550,40 @@ mod tests {
         room.destroy_connection(connection_id);
         assert_eq!(room.term.value(), 1);
         assert!(room.leader_index.is_none())
+    }
+
+    #[test]
+    fn knows_about_current_term() {
+        let mut room = Room::new();
+        let now = Instant::now();
+        let connection_id = room.create_connection(now);
+
+        assert_eq!(room.connection_knows_about_current_term(connection_id), false);
+        let wrong_term = Term(1);
+        let has_connection_to_host = ConnectionToLeader::Connected;
+        let knowledge: Knowledge = Knowledge(42);
+        room.on_ping(
+            connection_id,
+            wrong_term,
+            &has_connection_to_host,
+            knowledge,
+            now,
+        );
+
+        assert_eq!(room.connection_knows_about_current_term(connection_id), false);
+        assert_eq!(room.term.value(), 0);
+        assert_eq!(room.leader_index.unwrap().value(), 1);
+
+        let time_in_future = now + Duration::new(40, 0);
+        room.on_ping(
+            connection_id,
+            room.term,
+            &has_connection_to_host,
+            knowledge,
+            time_in_future,
+        );
+
+
+        assert_eq!(room.connection_knows_about_current_term(connection_id), true);
     }
 }
