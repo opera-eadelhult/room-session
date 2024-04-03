@@ -275,6 +275,38 @@ impl Room {
         self.id
     }
 
+    /// Determines if a given connection is aware of the current term.
+    ///
+    /// This method checks whether the connection identified by `connection_index`
+    /// has acknowledged that they received information about the current term.
+    ///
+    /// # Arguments
+    ///
+    /// * `connection_index` - A unique identifier for the connection.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the specified connection is aware of the current term, otherwise `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Example usage of `connection_knows_about_current_term`.
+    /// use std::time::Instant;
+    /// use conclave_room_session::Room;
+    /// let mut room = Room::new();
+    /// let some_connection_index = room.create_connection(Instant::now());
+    /// let is_aware = room.connection_knows_about_current_term(some_connection_index);
+    /// if is_aware {
+    ///     println!("The connection is aware of the current term.");
+    /// } else {
+    ///     println!("The connection is not aware of the current term.");
+    /// }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This method panics if there is no connection associated with the provided `connection_index`.
     pub fn connection_knows_about_current_term(&self, connection_index: ConnectionIndex) -> bool {
         let found_connection = self.connections.get(&connection_index).unwrap();
         if let Some(last_reported_term) = found_connection.last_reported_term {
