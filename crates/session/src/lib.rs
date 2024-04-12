@@ -7,6 +7,8 @@
 //! Evaluating connection quality for all connections attached to the room. Using "votes" from the connections, together with
 //! [Knowledge] and [ConnectionQuality] it determines which connection should be appointed leader.
 
+extern crate core;
+
 use core::fmt;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -64,7 +66,7 @@ pub struct Connection {
 
 impl fmt::Display for Connection {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[conn id:{} knowledge:{} connectedToHost:{:?} knownTerm:{:?}]", self.id, self.knowledge, self.has_connection_host, self.last_reported_term)
+        write!(f, "[conn id:{}, knowledge:{}, connectedToHost:{:?}, knownTerm:{:?}, quality:{}]", self.id, self.knowledge, self.has_connection_host, self.last_reported_term, self.quality)
     }
 }
 
@@ -99,6 +101,7 @@ impl Connection {
 
     fn update(&mut self, time: Instant) {
         self.quality.update(time);
+        trace!("update {}", self);
     }
 
     pub fn assessment(&self) -> QualityAssessment {
@@ -417,9 +420,9 @@ impl Room {
 
 #[cfg(test)]
 mod tests {
-    use test_log::test;
-
     use std::time::{Duration, Instant};
+
+    use test_log::test;
 
     use conclave_types::{ConnectionToLeader, Knowledge, Term};
 

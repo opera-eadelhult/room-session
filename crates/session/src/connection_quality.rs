@@ -1,5 +1,5 @@
+use core::fmt;
 use std::time::Instant;
-use log::trace;
 
 use crate::metrics::RateMetrics;
 
@@ -17,8 +17,16 @@ pub enum QualityAssessment {
 pub struct ConnectionQuality {
     pub last_ping_at: Instant,
     pub pings_per_second: RateMetrics,
+    pub last_pings_per_second: f32,
     pub assessment: QualityAssessment,
     threshold: f32,
+}
+
+
+impl fmt::Display for ConnectionQuality {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[quality pings_per_second:{} assessment: {:?}]", self.last_pings_per_second, self.assessment)
+    }
 }
 
 impl ConnectionQuality {
@@ -27,6 +35,7 @@ impl ConnectionQuality {
             assessment: QualityAssessment::NeedMoreInformation,
             last_ping_at: Instant::now(),
             pings_per_second: RateMetrics::new(time),
+            last_pings_per_second: 0.0,
             threshold,
         }
     }
@@ -40,15 +49,15 @@ impl ConnectionQuality {
         if !self.pings_per_second.has_enough_time_passed(time) {
             self.assessment = QualityAssessment::NeedMoreInformation;
         } else {
-            let pings_per_second = self.pings_per_second.calculate_rate(time);
-            self.assessment = if pings_per_second < self.threshold {
+            self.last_pings_per_second = self.pings_per_second.calculate_rate(time);
+            self.assessment = if self.last_pings_per_second < self.threshold {
                 QualityAssessment::RecommendDisconnect
-            } else if pings_per_second > self.threshold * 2.0 {
+            } else if self.last_pings_per_second > self.threshold * 2.0 {
                 QualityAssessment::Good
             } else {
                 QualityAssessment::Acceptable
             };
-            trace!("pings_per_second {}, assessment {:?}", pings_per_second, self.assessment);
+
         }
     }
 }
