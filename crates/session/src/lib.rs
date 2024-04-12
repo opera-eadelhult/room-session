@@ -62,11 +62,12 @@ pub struct Connection {
     pub state: ConnectionState,
     pub last_reported_term: Option<Term>,
     pub has_connection_host: ConnectionToLeader,
+    pub debug_name: Option<String>,
 }
 
 impl fmt::Display for Connection {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[conn id:{}, knowledge:{}, connectedToHost:{:?}, knownTerm:{:?}, quality:{}]", self.id, self.knowledge, self.has_connection_host, self.last_reported_term, self.quality)
+        write!(f, "[conn id:{} (name:{:?})  knowledge:{}, connectedToHost:{:?}, knownTerm:{:?}, quality:{}]", self.id, self.debug_name, self.knowledge, self.has_connection_host, self.last_reported_term, self.quality)
     }
 }
 
@@ -83,6 +84,7 @@ impl Connection {
             quality: ConnectionQuality::new(pings_per_second_threshold, time),
             knowledge: Knowledge(0),
             state: ConnectionState::Online,
+            debug_name: None,
         }
     }
 
@@ -256,7 +258,6 @@ impl Room {
         }
 
         let leader_connection = self.connections.get(&self.leader_index.unwrap()).unwrap();
-
         if leader_connection.assessment() == QualityAssessment::RecommendDisconnect
             && self.is_possible_to_switch_leader()
         {
@@ -416,12 +417,17 @@ impl Room {
         }
         self.connections.remove(&connection_index);
     }
+
+    pub fn set_debug_name(&mut self, connection_index: ConnectionIndex, name: &str) {
+        self.connections.get_mut(&connection_index).unwrap().debug_name = Some(name.to_string());
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::time::{Duration, Instant};
 
+    use log::info;
     use test_log::test;
 
     use conclave_types::{ConnectionToLeader, Knowledge, Term};
@@ -647,5 +653,14 @@ mod tests {
 
 
         assert_eq!(room.connection_knows_about_current_term(connection_id), true);
+    }
+
+    #[test]
+    fn check_set_debug_name() {
+        let mut room = Room::new();
+        let now = Instant::now();
+        let connection_id = room.create_connection(now);
+        room.set_debug_name(connection_id, "Hello");
+        info!("connection: {}", room.get(connection_id))
     }
 }
