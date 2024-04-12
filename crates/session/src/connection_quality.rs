@@ -1,4 +1,5 @@
 use std::time::Instant;
+use log::trace;
 
 use crate::metrics::RateMetrics;
 
@@ -47,6 +48,7 @@ impl ConnectionQuality {
             } else {
                 QualityAssessment::Acceptable
             };
+            trace!("pings_per_second {}, assessment {:?}", pings_per_second, self.assessment);
         }
     }
 }

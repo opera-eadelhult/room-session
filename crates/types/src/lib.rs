@@ -14,7 +14,7 @@ pub struct Term(pub u16);
 
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Term: {}", self.0)
+        write!(f, "[term {}]", self.0)
     }
 }
 

@@ -7,16 +7,19 @@
 //! Evaluating connection quality for all connections attached to the room. Using "votes" from the connections, together with
 //! [Knowledge] and [ConnectionQuality] it determines which connection should be appointed leader.
 
-mod connection_quality;
-mod metrics;
-
 use core::fmt;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use crate::connection_quality::ConnectionQuality;
+use log::{debug, info, trace};
+
 use conclave_types::{ConnectionToLeader, Knowledge, Term};
 use connection_quality::QualityAssessment;
+
+use crate::connection_quality::ConnectionQuality;
+
+mod connection_quality;
+mod metrics;
 
 /// ID or index for a room connection
 #[derive(Default, Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd)]
@@ -24,7 +27,7 @@ pub struct ConnectionIndex(pub u16);
 
 impl fmt::Display for ConnectionIndex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ConnectionIndex: {}", self.0)
+        write!(f, "[conn_id: {}]", self.0)
     }
 }
 
@@ -57,6 +60,12 @@ pub struct Connection {
     pub state: ConnectionState,
     pub last_reported_term: Option<Term>,
     pub has_connection_host: ConnectionToLeader,
+}
+
+impl fmt::Display for Connection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[conn id:{} knowledge:{} connectedToHost:{:?} knownTerm:{:?}]", self.id, self.knowledge, self.has_connection_host, self.last_reported_term)
+    }
 }
 
 impl Connection {
@@ -207,11 +216,17 @@ impl Room {
             .map(|(_, connection)| connection.id)
     }
 
-    fn switch_leader_to_best_knowledge_and_quality(&mut self) {
-        self.leader_index =
-            self.connection_with_most_knowledge_and_acceptable_quality(self.leader_index);
+    fn switch_leader(&mut self, leader_index: Option<ConnectionIndex>) {
+        self.leader_index = leader_index;
         // We start a new term, since we have a new leader
         self.term.next();
+        debug!("elected a new leader {:?} for the term {}", self.leader_index, self.term)
+    }
+
+    fn switch_leader_to_best_knowledge_and_quality(&mut self) {
+        let leader_index =
+            self.connection_with_most_knowledge_and_acceptable_quality(self.leader_index);
+        self.switch_leader(leader_index)
     }
 
     fn change_leader_if_down_voted(&mut self) -> bool {
@@ -220,6 +235,7 @@ impl Room {
         }
 
         if self.has_most_lost_connection_to_leader() {
+            info!("most members have down-voted leader {}, so switching to a new one", self.leader_index.unwrap());
             self.switch_leader_to_best_knowledge_and_quality();
             return true;
         }
@@ -241,6 +257,7 @@ impl Room {
         if leader_connection.assessment() == QualityAssessment::RecommendDisconnect
             && self.is_possible_to_switch_leader()
         {
+            debug!("leader {} connection has bad quality, switching to a new leader", self.leader_index.unwrap());
             self.switch_leader_to_best_knowledge_and_quality()
         }
     }
@@ -266,11 +283,15 @@ impl Room {
             time,
             self.config.pings_per_second_threshold,
         );
-        self.connections.insert(self.id, connection);
+
+        info!("create connection {}", connection);
 
         if self.leader_index.is_none() {
-            self.leader_index = Some(self.id);
+            info!("this was first connection {}, so this will be leader:{}", &connection, self.id);
+            self.switch_leader(Some(self.id));
         }
+
+        self.connections.insert(self.id, connection);
 
         self.id
     }
@@ -310,13 +331,14 @@ impl Room {
     pub fn connection_knows_about_current_term(&self, connection_index: ConnectionIndex) -> bool {
         let found_connection = self.connections.get(&connection_index).unwrap();
         if let Some(last_reported_term) = found_connection.last_reported_term {
-           last_reported_term == self.term
+            last_reported_term == self.term
         } else {
             false
         }
     }
 
     fn update(&mut self, time: Instant) {
+        trace!("update connections {} time:{:?}", self.connections.len(), time);
         for connection in self.connections.values_mut() {
             connection.update(time);
         }
@@ -326,6 +348,7 @@ impl Room {
             for connection in self.connections.values_mut() {
                 if connection.assessment() == QualityAssessment::RecommendDisconnect {
                     connection.state = ConnectionState::Disconnected;
+                    debug!("disconnecting {}", connection);
                     if self.config.destroy_disconnected_connections {
                         connection_index_vector.push(connection.id);
                     }
@@ -334,6 +357,7 @@ impl Room {
 
             if self.config.destroy_disconnected_connections {
                 for connection_index in connection_index_vector {
+                    debug!("destroying {}", connection_index);
                     self.destroy_connection(connection_index);
                 }
             }
@@ -393,10 +417,13 @@ impl Room {
 
 #[cfg(test)]
 mod tests {
+    use test_log::test;
+
     use std::time::{Duration, Instant};
 
-    use crate::{QualityAssessment, Room, RoomConfig};
     use conclave_types::{ConnectionToLeader, Knowledge, Term};
+
+    use crate::{QualityAssessment, Room, RoomConfig};
 
     #[test]
     fn check_ping() {
@@ -575,12 +602,12 @@ mod tests {
     fn change_leader_when_destroying_leader_connection() {
         let mut room = Room::new();
         let now = Instant::now();
-        let connection_id = room.create_connection(now);
         assert_eq!(room.term.value(), 0);
+        let connection_id = room.create_connection(now);
         assert_eq!(connection_id.value(), 1);
         assert_eq!(room.leader_index.unwrap().value(), 1);
         room.destroy_connection(connection_id);
-        assert_eq!(room.term.value(), 1);
+        assert_eq!(room.term.value(), 2);
         assert!(room.leader_index.is_none())
     }
 
@@ -591,7 +618,7 @@ mod tests {
         let connection_id = room.create_connection(now);
 
         assert_eq!(room.connection_knows_about_current_term(connection_id), false);
-        let wrong_term = Term(1);
+        let wrong_term = Term(0);
         let has_connection_to_host = ConnectionToLeader::Connected;
         let knowledge: Knowledge = Knowledge(42);
         room.on_ping(
@@ -603,7 +630,7 @@ mod tests {
         );
 
         assert_eq!(room.connection_knows_about_current_term(connection_id), false);
-        assert_eq!(room.term.value(), 0);
+        assert_eq!(room.term.value(), 1);
         assert_eq!(room.leader_index.unwrap().value(), 1);
 
         let time_in_future = now + Duration::new(40, 0);

@@ -13,4 +13,5 @@ repository = "https://github.com/piot/conclave-room-net-rs"
 conclave-room-session = { path = "../session" }
 conclave-room-serialize = { path = "../serialize" }
 flood-rs = "0.0.4"
+log = "0.4.21"
 
