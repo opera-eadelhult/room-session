@@ -160,7 +160,7 @@ impl RoomConfig {
     }
 }
 
-const ABANDONED_TIMEOUT: Duration = Duration::from_secs(2);
+const ABANDONED_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
 /// Contains the Room [Connection]s as well the appointed Leader.
 #[derive(Debug)]
@@ -474,9 +474,11 @@ mod tests {
         let connection_id = room.create_connection(now);
         assert_eq!(room.connections.len(), 1);
         assert_eq!(connection_id.value(), 1);
+        assert_eq!(room.leader_index, Some(connection_id));
 
         room.destroy_connection(connection_id);
         assert_eq!(room.connections.len(), 0);
+        assert_eq!(room.leader_index, None);
     }
 
     #[test]
