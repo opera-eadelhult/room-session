@@ -147,6 +147,16 @@ impl RoomConfig {
         self
     }
 
+    pub fn with_disconnect_bad_connections(mut self, should_disconnect: bool) -> Self {
+        self.disconnect_bad_connections = should_disconnect;
+        self
+    }
+
+    pub fn with_destroy_disconnected_connections(mut self, should_destroy: bool) -> Self {
+        self.destroy_disconnected_connections = should_destroy;
+        self
+    }
+
     pub fn recommended_for_debug() -> Self {
         Self::default().pings_per_second_threshold(4.0)
     }
@@ -172,6 +182,7 @@ pub struct Room {
     pub config: RoomConfig,
     pub latest_ping_timestamp: Option<Instant>,
 }
+
 
 impl Default for Room {
     fn default() -> Self {
@@ -341,7 +352,7 @@ impl Room {
         }
     }
 
-    fn update(&mut self, time: Instant) {
+    pub fn update(&mut self, time: Instant) {
         trace!("update connections {} time:{:?}", self.connections.len(), time);
         for connection in self.connections.values_mut() {
             connection.update(time);
@@ -664,5 +675,54 @@ mod tests {
         let connection_id = room.create_connection(now);
         room.set_debug_name(connection_id, "Hello");
         info!("connection: {}", room.get(connection_id))
+    }
+
+    #[test]
+    fn destroy_room_with_no_ping() {
+        let mut room = RoomConfig::new()
+            .with_destroy_disconnected_connections(true)
+            .with_disconnect_bad_connections(true)
+            .build();
+        let now = Instant::now();
+        let connection_id = room.create_connection(now);
+
+        assert_eq!(room.connection_knows_about_current_term(connection_id), false);
+        let wrong_term = Term(0);
+        let has_connection_to_host = ConnectionToLeader::Connected;
+        let knowledge: Knowledge = Knowledge(42);
+        room.on_ping(
+            connection_id,
+            wrong_term,
+            &has_connection_to_host,
+            knowledge,
+            now,
+        );
+
+        assert_eq!(room.connection_knows_about_current_term(connection_id), false);
+        assert_eq!(room.term.value(), 1);
+        assert_eq!(room.leader_index.unwrap().value(), 1);
+
+        let time_in_future = now + Duration::new(0, 500);
+        assert_eq!(room.connections.len(), 1);
+        room.on_ping(
+            connection_id,
+            room.term,
+            &has_connection_to_host,
+            knowledge,
+            time_in_future,
+        );
+        assert_eq!(room.connections.len(), 1);
+
+        assert_eq!(room.connection_knows_about_current_term(connection_id), true);
+
+        assert_eq!(room.is_abandoned(time_in_future), false);
+
+        let time_in_future_with_no_ping = time_in_future + Duration::new(20, 0);
+        room.update(time_in_future_with_no_ping);
+        assert_eq!(room.connections.len(), 0);
+        assert_eq!(room.is_abandoned(time_in_future_with_no_ping), false);
+
+        let fifteen_minutes_later = time_in_future_with_no_ping + Duration::new(15 * 60, 0);
+        assert_eq!(room.is_abandoned(fifteen_minutes_later), true);
     }
 }
