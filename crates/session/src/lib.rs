@@ -17,6 +17,7 @@ use log::{debug, info, trace};
 
 use conclave_types::{ConnectionToLeader, Knowledge, Term};
 use connection_quality::QualityAssessment;
+use serde::{Deserialize, Serialize};
 
 use crate::connection_quality::ConnectionQuality;
 
@@ -24,7 +25,7 @@ mod connection_quality;
 mod metrics;
 
 /// ID or index for a room connection
-#[derive(Default, Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd)]
+#[derive(Default, Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct ConnectionIndex(pub u16);
 
 impl fmt::Display for ConnectionIndex {
